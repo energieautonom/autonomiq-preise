@@ -1,0 +1,6 @@
+{
+  "_hinweis": "Eine Zone je Eintrag. `name` wird zum Pfad (/preise/<name>/), `eic` ist der ENTSO-E-Code. Eine zweite Zone ist eine Zeile — die Boxen leiten ihren Pfad aus ihrem EIC-Code ab.",
+  "zonen": [
+    {"name": "AT", "eic": "10YAT-APG------L"}
+  ]
+}

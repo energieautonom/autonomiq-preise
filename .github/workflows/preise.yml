@@ -1,0 +1,77 @@
+name: Preise holen
+
+# **Nach Zustand, nicht nach Uhrzeit.** Die Veroeffentlichung der
+# Day-ahead-Preise schwankt — meist frueher Nachmittag, manchmal vormittags,
+# selten erst gegen 15 Uhr. Ein Lauf „taeglich um 14 Uhr" waere genau der
+# Fehler, den wir auf der Box vermieden haben.
+#
+# Deshalb: oft laufen, nur bei Aenderung committen. Der Zustand ist die
+# Datei, nicht der Zeitplan.
+#
+# **Die Zeiten sind UTC** (GitHub rechnet so). 07:00-19:00 UTC deckt
+# 09:00-21:00 Ortszeit im Sommer, 08:00-20:00 im Winter — das Fenster, in dem
+# veroeffentlicht wird. Ausserhalb genuegt stuendlich: es geht dann nur noch
+# um Korrekturen.
+#
+# **Und die Minute ist krumm.** GitHub warnt ausdruecklich vor der vollen
+# Stunde: „High load times include the start of every hour."
+on:
+  schedule:
+    - cron: "7,22,37,52 7-19 * * *"
+    - cron: "7 0-6,20-23 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  # Zwei gleichzeitige Laeufe wuerden einander die Commits wegziehen.
+  group: preise
+  cancel-in-progress: false
+
+jobs:
+  holen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Preise holen
+        env:
+          # **Der Token liegt hier und NIE im Artefakt.** Der ausliefernde
+          # Pfad — raw.githubusercontent — traegt kein Geheimnis; genau das
+          # ist der Grund fuer diese Bauform.
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          # **Der Cron-Ausdruck, aus dem der Sollzeitpunkt folgt.** GitHub
+          # gibt den Zeitstempel nicht her — `github.event.schedule` ist der
+          # Ausdruck. `erzeuge.py` rechnet daraus den letzten getroffenen
+          # Zeitpunkt aus; die Differenz zu `erzeugt_am` ist der Verzug.
+          #
+          # Bei einem manuellen Lauf ist er leer, und `lauf_geplant_fuer`
+          # bleibt `null` — ein Verzug von null waere dort eine Behauptung.
+          LAUF_CRON: ${{ github.event.schedule }}
+        run: python3 erzeuge.py --ziel preise
+
+      - name: Nur bei Aenderung committen
+        run: |
+          set -eu
+          if git diff --quiet -- preise; then
+            echo "unveraendert — kein Commit"
+            exit 0
+          fi
+          git config user.name  "preisdienst"
+          git config user.email "preisdienst@users.noreply.github.com"
+          git add preise
+          # Die Nachricht traegt die Abdeckung: `git log` ist damit das
+          # Archiv, und der erste Commit, dessen Abdeckung ueber den Folgetag
+          # reicht, ist der Veroeffentlichungszeitpunkt.
+          git commit -m "Preise: $(python3 -c "
+          import json,glob
+          for f in sorted(glob.glob('preise/*/meta.json')):
+              m=json.load(open(f))
+              print(f\"{m['zone']} bis {m['deckt_bis']} ({m['quelle']})\", end='; ')
+          ")"
+          git push
