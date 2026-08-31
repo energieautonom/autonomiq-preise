@@ -1,0 +1,10 @@
+{
+ "zone": "AT",
+ "quelle": "energy-charts",
+ "erzeugt_am": "2026-08-31T11:56:04.596544+00:00",
+ "lauf_geplant_fuer": null,
+ "punkte": 192,
+ "deckt_von": "2026-08-30T22:00:00+00:00",
+ "deckt_bis": "2026-09-01T22:00:00+00:00",
+ "einheit": "EUR/kWh"
+}
