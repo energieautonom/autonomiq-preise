@@ -1,9 +1,9 @@
 {
  "zone": "AT",
  "quelle": "entsoe",
- "erzeugt_am": "2026-09-05T00:49:41.111166+00:00",
- "lauf_geplant_fuer": "2026-09-05T00:07:00+00:00",
- "punkte": 287,
+ "erzeugt_am": "2026-09-05T13:54:32.595593+00:00",
+ "lauf_geplant_fuer": "2026-09-05T13:52:00+00:00",
+ "punkte": 288,
  "deckt_von": "2026-09-04T22:00:00+00:00",
  "deckt_bis": "2026-09-07T22:00:00+00:00",
  "einheit": "EUR/kWh"
