@@ -1,10 +1,10 @@
 {
  "zone": "AT",
- "quelle": "entsoe",
- "erzeugt_am": "2026-09-07T13:28:14.665725+00:00",
- "lauf_geplant_fuer": "2026-09-07T13:22:00+00:00",
- "punkte": 192,
- "deckt_von": "2026-09-06T22:00:00+00:00",
+ "quelle": "energy-charts",
+ "erzeugt_am": "2026-09-08T01:06:46.360957+00:00",
+ "lauf_geplant_fuer": "2026-09-08T00:07:00+00:00",
+ "punkte": 96,
+ "deckt_von": "2026-09-07T22:00:00+00:00",
  "deckt_bis": "2026-09-08T22:00:00+00:00",
  "einheit": "EUR/kWh"
 }
