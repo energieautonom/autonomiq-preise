@@ -262,6 +262,18 @@ def main(argv: list[str] | None = None) -> int:
         (ziel / "zonen.json").write_text(liste, encoding="utf-8")
         geaendert = True
 
+    # **Einspeisetarife, die sich regelmaessig aendern** (20.10.2026): OeMAG
+    # monatlich, IKB/TIWAG quartalsweise. Ein Fehler hier haelt die
+    # Boersenpreise nicht auf — die vorhandene Datei bleibt.
+    import einspeisetarife
+    try:
+        e_geaendert, e_meldungen = einspeisetarife.aktualisiere(ziel, jetzt)
+    except Exception as fehler:                       # noqa: BLE001
+        e_geaendert, e_meldungen = False, [f"Einspeisetarife: {fehler}"]
+    for m in e_meldungen:
+        print(f"  {m}")
+    geaendert = geaendert or e_geaendert
+
     print("\nGEAENDERT" if geaendert else "\nunveraendert")
     # **Kein Fehlercode, wenn nichts zu holen war.** Ein roter Lauf jedes Mal,
     # wenn eine Quelle schweigt, waere eine Meldung, die man uebersieht — die

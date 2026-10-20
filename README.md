@@ -127,3 +127,19 @@ trägt die Abdeckung, `git log` ist damit das Archiv.
 identisch — eine Abweichung lässt den Test fallen. Ohne das wäre die
 Entduplizierungsregel (`classificationSequence`, niedrigste Position) an zwei
 Orten gepflegt, und einer liefe irgendwann hinterher.
+
+## Einspeisetarife (seit 20.10.2026)
+
+`einspeisetarife.py` holt bei jedem Lauf, was sich regelmaessig aendert, und
+legt es nach `preise/katalog/einspeisung.json`:
+
+| Eintrag | Quelle | Rhythmus |
+|---|---|---|
+| `oemag` | oem-ag.at/marktpreis, Tabelle „Marktpreise <Jahr>" | monatlich |
+| `ikb-pv` | ikb.at, Liste „Qn JJJJ (…) x,xx Cent/kWh" | quartalsweise |
+| `tiwag-pv` | **aus IKB abgeleitet** (gleiche Formel); tiwag.at ist ohne Browser nicht lesbar (Cookie-Zustimmung). Wird es lesbar, wird verglichen — Abweichung heisst: fuer TIWAG nichts | quartalsweise |
+
+Nie schlechter: ein Wert verschwindet nie. Ein Wert ausser 0–50 ct kippt die
+ganze Antwort dieser Quelle. Ein Fehler hier haelt die Boersenpreise nicht
+auf. **Beim Uebertragen ins Dienst-Repository `einspeisetarife.py` und
+`erzeuge.py` mitnehmen.**
