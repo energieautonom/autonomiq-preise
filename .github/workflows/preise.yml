@@ -58,7 +58,7 @@ jobs:
       - name: Nur bei Aenderung committen
         run: |
           set -eu
-          if git diff --quiet -- preise; then
+          if [ -z "$(git status --porcelain -- preise)" ]; then
             echo "unveraendert — kein Commit"
             exit 0
           fi
