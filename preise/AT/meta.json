@@ -1,8 +1,8 @@
 {
  "zone": "AT",
- "quelle": "entsoe",
- "erzeugt_am": "2026-11-09T10:26:14.179226+00:00",
- "lauf_geplant_fuer": "2026-11-09T10:22:00+00:00",
+ "quelle": "energy-charts",
+ "erzeugt_am": "2026-11-09T12:21:12.355726+00:00",
+ "lauf_geplant_fuer": "2026-11-09T12:07:00+00:00",
  "punkte": 192,
  "deckt_von": "2026-11-08T23:00:00+00:00",
  "deckt_bis": "2026-11-10T23:00:00+00:00",
