@@ -69,6 +69,28 @@ class Preispunkt:
     wert: float
 
 
+class Preisliste(list):
+    """Eine Liste von `Preispunkt` — mit dem, was das Dokument dazu sagt.
+
+    **Eine Liste, damit jeder bisherige Leser unveraendert bleibt** (auch die
+    Attrappen der Tests). Die beiden Angaben sind Zusatzwissen; wo sie fehlen
+    (eine schlichte Liste), heissen sie „unbekannt", nie „nichts".
+
+    `position1_bis` — bis wohin die Preise aus einer Reihe mit Position 1
+    stammen. Fuer Oesterreich traegt das A44-Dokument je Tag zwei Reihen:
+    Position 1 ist die gekoppelte Day-Ahead-Auktion (EPEX, gegen Energy-Charts
+    an 29 von 29 Tagen auf 0,05 EUR/MWh gleich, 24.10.2026), Position 2 die
+    fruehere Auktion (sehr wahrscheinlich EXAA), die schon gegen 11:30 da ist.
+    Das Dokument nennt den Marktbetreiber nicht — die Position ist das einzige
+    unterscheidende Feld.
+
+    `ignoriert` — wieviele Reihen ohne lesbare Position verworfen wurden.
+    """
+
+    position1_bis: datetime | None = None
+    ignoriert: int = 0
+
+
 class EntsoeFehler(Exception):
     """Der Abruf ist gescheitert. Traegt **keinen** Token im Text."""
 
@@ -138,7 +160,7 @@ def _punkte(period, minuten: int, beginn: datetime) -> list[Preispunkt]:
     return raus
 
 
-def auswerten(xml_text: str) -> list[Preispunkt]:
+def auswerten(xml_text: str) -> Preisliste:
     """Ein A44-Dokument in Preispunkte.
 
     **ENTSO-E liefert fuer denselben Zeitraum mehrere `TimeSeries`**, und wer
@@ -156,6 +178,13 @@ def auswerten(xml_text: str) -> list[Preispunkt]:
     **Die erste Fassung hat beides ignoriert.** Sie sah richtig aus, lieferte
     Preise, und die Datei war trotzdem falsch — der Fehler faellt erst auf,
     wenn jemand die Zeitstempel zaehlt.
+
+    **Eine Reihe ohne lesbare Position wird verworfen und gemeldet**
+    (Entscheidung 24.10.2026). Bis dahin bekam sie Position 0 und schlug
+    damit JEDE andere — eine einzige Reihe ohne das Feld haette die
+    endgueltige Reihe still verdraengt. Fehlt das Feld ueberall, kommen aus
+    ENTSO-E keine Preise, und die naechste Quelle (Energy-Charts) springt ein:
+    laut statt falsch.
     """
     wurzel = ET.fromstring(xml_text)
     if _ohne_namensraum(wurzel.tag) == "Acknowledgement_MarketDocument":
@@ -165,17 +194,15 @@ def auswerten(xml_text: str) -> list[Preispunkt]:
 
     # je Zeitraum der beste Kandidat: (Position, Aufloesungsrang, Punkte)
     beste: dict[tuple[str, str], tuple[int, int, list[Preispunkt]]] = {}
+    ignoriert = 0
 
     for reihe in wurzel.iter():
         if _ohne_namensraum(reihe.tag) != "TimeSeries":
             continue
-        position = 0
-        for kind in reihe:
-            if _ohne_namensraum(kind.tag).startswith("classificationSequence"):
-                try:
-                    position = int((kind.text or "0").strip())
-                except ValueError:
-                    position = 0
+        position = _position(reihe)
+        if position is None:
+            ignoriert += 1
+            continue
         for period in reihe:
             if _ohne_namensraum(period.tag) != "Period":
                 continue
@@ -207,15 +234,38 @@ def auswerten(xml_text: str) -> list[Preispunkt]:
             if vorher is None or (position, rang) < (vorher[0], vorher[1]):
                 beste[zeitraum] = (position, rang, punkte)
 
-    raus: list[Preispunkt] = []
-    for _, _, punkte in beste.values():
+    raus = Preisliste()
+    for position, _, punkte in beste.values():
         raus.extend(punkte)
+        if position == 1 and punkte:
+            ende = max(p.ende for p in punkte)
+            if raus.position1_bis is None or ende > raus.position1_bis:
+                raus.position1_bis = ende
     raus.sort(key=lambda p: p.beginn)
+    raus.ignoriert = ignoriert
+    if ignoriert:
+        log.warning("ENTSO-E: %d Reihe(n) ohne lesbare Position verworfen — "
+                    "ohne sie liesse sich die endgueltige Reihe nicht von der "
+                    "vorlaeufigen unterscheiden", ignoriert)
     return raus
 
 
+def _position(reihe) -> int | None:
+    """`classificationSequence_…position` einer Reihe — `None`, wenn das Feld
+    fehlt oder keine ganze Zahl ab 1 traegt. **Nie 0 als Ersatz**: 0 schlug
+    jede echte Position."""
+    for kind in reihe:
+        if _ohne_namensraum(kind.tag).startswith("classificationSequence"):
+            try:
+                wert = int((kind.text or "").strip())
+            except ValueError:
+                return None
+            return wert if wert >= 1 else None
+    return None
+
+
 def hole(zone: str, token: str, *, stunden: int = 48,
-         jetzt: datetime | None = None, oeffner: Any = None) -> list[Preispunkt]:
+         jetzt: datetime | None = None, oeffner: Any = None) -> Preisliste:
     """Preise fuer die naechsten `stunden`. Wirft `EntsoeFehler`.
 
     **Der Token steht in der URL und darf in keiner Meldung auftauchen.** evcc

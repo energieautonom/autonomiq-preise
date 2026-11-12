@@ -38,7 +38,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from quellen import energy_charts as ec           # noqa: E402
 from quellen.entsoe import (                      # noqa: E402
-    EntsoeFehler, auf_stunden, pruefe_plausibel,
+    EntsoeFehler, Preisliste, auf_stunden, pruefe_plausibel,
 )
 from quellen.entsoe import hole as entsoe_hole    # noqa: E402
 
@@ -96,9 +96,26 @@ def geplanter_lauf(cron: str, jetzt: datetime) -> str | None:
 
 
 def _als_json(punkte) -> list[dict]:
-    return [{"start": p.beginn.isoformat(),
-             "end": p.ende.isoformat(),
-             "value": round(float(p.wert), 6)} for p in punkte]
+    """Je Punkt Beginn, Ende, Wert — und `endgueltig`, wenn es bekannt ist.
+
+    **`endgueltig` heisst: aus der gekoppelten Day-Ahead-Auktion** (ENTSO-E
+    Position 1 bzw. Energy-Charts). Fuer Oesterreich liegt vormittags nur die
+    fruehe Auktion vor (Position 2, sehr wahrscheinlich EXAA, 24.10.2026); sie
+    wird gegen 13–15 Uhr ersetzt. Die Box fragt bis dahin oefter nach. Ohne
+    das Feld (eine schlichte Liste) weiss die Box es nicht — Boxen mit
+    aelterem Stand lesen das Feld nicht.
+    """
+    bis = getattr(punkte, "position1_bis", None)
+    bekannt = isinstance(punkte, Preisliste)
+    raus = []
+    for p in punkte:
+        eintrag = {"start": p.beginn.isoformat(),
+                   "end": p.ende.isoformat(),
+                   "value": round(float(p.wert), 6)}
+        if bekannt:
+            eintrag["endgueltig"] = bis is not None and p.ende <= bis
+        raus.append(eintrag)
+    return raus
 
 
 def _lies(pfad: pathlib.Path):
@@ -167,6 +184,15 @@ def hole_zone(zone_eic: str, token: str | None, jetzt: datetime):
         if not punkte:
             meldungen.append(f"{name}: keine Punkte")
             continue
+        if getattr(punkte, "ignoriert", 0):
+            meldungen.append(f"{name}: {punkte.ignoriert} Reihe(n) ohne "
+                             "lesbare Position verworfen")
+        if name == "energy-charts":
+            # **Energy-Charts traegt nur die gekoppelte Auktion** — alles ist
+            # endgueltig, so weit es reicht.
+            liste = Preisliste(punkte)
+            liste.position1_bis = max(p.ende for p in punkte)
+            punkte = liste
         if besser(punkte):
             beste, beste_quelle = punkte, name
             meldungen.append(f"{name}: {len(punkte)} Punkte")
